@@ -31,16 +31,32 @@ chrome.tabs.query({
 
     
 
-var html = '<a class="blue-text collection-item" href="' + currentwebsite + '" target="_blank">';
+var html =`
+            <div class="row">
+              <div class="col s1"><img src="http://s2.googleusercontent.com/s2/favicons?domain=${nohttp(baseurl(currentwebsite))}"/></div>
+              <div class="col s11 flow-text truncate">${currentwebsite}</div>
+            </div>
+            <div class="row">
+              <div class="col s4" id="stButton"><a class="waves-effect waves-light btn">Get article</a></div>
+              <div class="col s4" id="removeAds"><a class="waves-effect waves-light btn">Remove Ads</a></div>
+              <div class="col s4" id="minimized"><a class="waves-effect waves-light btn">Minimize</a></div>
+            </div>
+          `
   
-  html += '<img src="http://s2.googleusercontent.com/s2/favicons?domain=' + nohttp(baseurl(currentwebsite)) + '"/>';
-  html += currentwebsite + '<span class="new badge blue" data-badge-caption="Current Websiste NOW"><span><a/>';
-  html += '<div id="stButton"><a class="waves-effect waves-light btn">button</a></div>';
-  
-  
+  // html += '<div class = row><img src="http://s2.googleusercontent.com/s2/favicons?domain=' + nohttp(baseurl(currentwebsite)) + '"/>';
+  // html += `<div class="col s6">${currentwebsite}</div></div>`;
+  // html += '<div class="row">'
+  // html += '<div class="col s4" id="stButton"><a class="waves-effect waves-light btn">Get article</a></div>';
+  // html += '<div class="col s4" id="removeAds"><a class="waves-effect waves-light btn">Remove Ads</a></div>';
+  // html += '<div class="col s4" id="minimized"><a class="waves-effect waves-light btn">Minimize</a></div>';
+  // html +='</div>'
   
 
 $("div.seolist").html(html);
+//$("div.tab2").html(html2);
+$('#removeAds').on('click', function(){
+  chrome.tabs.executeScript({file: 'js/removeAds.js'})
+})
 $('#stButton').on('click', function(){
      console.log(`currentwebsite: ${currentwebsite}`);
      
@@ -50,7 +66,7 @@ $('#stButton').on('click', function(){
         //window.open(url);
      });*/
      chrome.tabs.executeScript(null, {file: "js/jquery.min.js"}, function(){
-       chrome.tabs.executeScript({file : 'getContent.js'})
+       chrome.tabs.executeScript({file : 'js/getContent.js'})
      })
 
 
