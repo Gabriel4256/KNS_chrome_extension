@@ -1,10 +1,9 @@
 function removeAds(node) {
-    let bannedList = { className: 'adsbygoogle' };
-    for (node of node.querySelectorAll('.adsbygoogle')) {
-        node.remove();
-    }
-    for (node of node.querySelectorAll('[id^=google_ads]')){
-        node.remove();
+    for (adNode of node.querySelectorAll('.adsbygoogle, [id^=google_ads]')) {
+        while(!adNode.nextSibling){
+            adNode = adNode.parentNode;
+        }
+        adNode.remove();
     }
 }
 

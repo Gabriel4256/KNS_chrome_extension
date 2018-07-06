@@ -29,36 +29,35 @@ let startPoints = setStartPoints(document);
 let endPoints = [];
 
 for(startPoint of startPoints){
-    while (shouldIncludeParentNode(starPoint)){
+    while (shouldIncludeParentNode(startPoint)){
         startPoint = startPoint.parentNode;
         //console.log(startPoint);
     }
-    if(!endPoints.includes(point)){
+    if(!endPoints.includes(startPoint)){
         //TODO: 결과로 나온 endpoints들 합치기
         
-        endPoints.push(point);
+        endPoints.push(startPoint);
     }
 }
 console.log("endPoints: ");
 console.log(endPoints);
 for(point of endPoints){
-    if(checkParents(point)){
-        point.style.border = "5px solid cyan";
+    if(!checkParents(point)){
+        point.style.border = "5px solid crimson";
     }
 }
+getCommonAncestor(endPoints).style.border = "5px solid cyan";
 
 function shouldIncludeParentNode(currentNode){ //현재 노드가 중요한 본문일때 parentNode까지 중요한 본문에 포함이 되는지 확인 
     //should we go up to include parent node?
-    console.log(currentNode.parentNode.childNodes);
     for(node of currentNode.parentNode.childNodes){
         if (node === currentNode || node.nodeType !== 1){  //nodeType이 1=> element_node(p, div 태그 포함)라는 의미
             continue
         }
-        if (!checkChildren(node)){ //본문에 포함되면 안되는 것들이 있는지 확인, 있으면 올라갈수 없다.
+        if (checkChildren(node)){ //본문에 포함되면 안되는 것들이 있는지 확인, 있으면 올라갈수 없다.
             break;
         }
         else if(includeParagraph(node)){ //본문이 될 수 있는 text를 포함하는지 확인
-            console.log(node);
             return true
         }
     }
@@ -69,8 +68,6 @@ function includeParagraph(node){
     if (node.tagName[0] === 'H' || node.tagName[0] === 'P'){
         return true;
     }
-    console.log(node);
-    console.log(node.querySelectorAll('p, h1, h2, h3, h4, h5'));
     if(node.querySelectorAll('p, h1, h2, h3, h4, h5')[0] && node.querySelectorAll('p, h1, h2, h3, h4, h5')[0].textContent){
         return true;
     }
@@ -103,7 +100,10 @@ function findParagraphs(doc){  //본문이라고 생각되는 태그들을 일�
         for(node of doc.querySelectorAll('h1, h2, h3, h4, h5, p')){
             if(function(node){
                 for (child of node.childNodes) {
-                    if (child.tagName === "A" && (!child.nextSibling || (child.nextSibling.nodeType!=3))) {
+                    if (child.tagName === "A" && (!child.nextSibling || (child.nextSibling.nodeType!=3)) 
+                        || (!node.innerText || node.innerText.replace(/\s/g, '')==='')
+                        || (node.querySelector('iframe'))
+                    ) {
                         return false;
                     }
                 }
@@ -139,7 +139,7 @@ function filterNode(node, bannedList){
 function setStartPoints(doc){  //탐색을 시작할 가장 아랫단계의 시작점들을 선별
     points = [];
     for(node of findParagraphs(doc)){
-        if(!points.includes(node.parentNode) && checkParents(node)){
+        if(!points.includes(node.parentNode) && !checkParents(node)){
             points.push(node.parentNode);
         }
     }
@@ -148,37 +148,59 @@ function setStartPoints(doc){  //탐색을 시작할 가장 아랫단계의 시�
     return points;
 }
 
-function checkParents(node){ //footer tag나 aside 태그 node를 부모로 가지고 있으면 거른다.
+function checkParents(node){ //footer tag나 aside 태그 node를 부모로 가지고 있으면 거른다. => return true
     let bannedTagList = ['FORM','FOOTER', 'ASIDE', 'A', 'HEADER', 'NAV', 'SPAN', 'INPUT']
-    let bannedIdList = ['footer', 'sidebar', 'sidenav']
-    let bannedClassList = ['sidesection', 'sidebar', 'footer', 'sidenav']
+    let bannedIdList = ['footer', 'sidebar', 'sidenav', 'topnav']
+    let bannedClassList = ['sidesection', 'sidebar', 'footer', 'sidenav', 'title', 'top']
     while(node){
         if(filterNode(node, {tagName: bannedTagList, id: bannedIdList, className: bannedClassList})){
             node = node.parentNode;
         }
         else{
-            return false;
+            return true;
         }
     }
-    return true;
+    return false;
 }
 
 function checkChildren(node){ //이 node가 본문에 포함되도 상관이 없는가?
-    let bannedTagList = ['FOOTER', 'ASIDE', 'HEADER', 'NAV', 'SPAN', 'INPUT'];
-    let banneIdList = ['footer', 'sidebar']
+    let bannedTagList = ['footer', 'aside', 'header', 'nav', 'span', 'input'];
+    let banneIdList = ['footer', 'sidebar', 'topnav']
+    let bannedClassList = ['.sidesection', '.sidebar','.footer', '.sidenav', '.title', '.top']
 
-    return bannedTagList.includes(node.tagName) || node.querySelectorAll('footer', 'aside', 'header', 'nav')[0];
+    //return bannedTagList.includes(node.tagName) || node.querySelectorAll('footer', 'aside', 'header', 'nav')[0] || node.querySelectorAll(...bannedClassList)[0];
+    return node.querySelectorAll(...bannedClassList)[0] || node.querySelectorAll(...bannedTagList)[0] || node.querySelectorAll('[id="footer, sidebar, topnav"]')[0]
 }
 
 function removeAds(node){
     let bannedList = {className: 'adsbygoogle'};
     for(node of node.querySelectorAll('.adsbygoogle')){
+        while(!node.nextSibling){
+            node = node.parentNode;
+        }
         node.remove();
     }
 }
 
-function getCommonParents(...args){
-    for(node of args){
+/**
+ *
+ *
+ * @param {Node[]} args
+ * @returns {Node} 
+ */
+function getCommonAncestor(endPointList){
+    console.log('getting common ancestor')
+    let result = null;
+    for(node of endPointList){
 
+        if(!result){
+            result = node;
+            continue;
+        }
+        while(!result.contains(node) && !checkChildren(result.parentNode)){
+            console.log(result);   
+            result = result.parentNode;
+        }
     }
+    return result;
 }
