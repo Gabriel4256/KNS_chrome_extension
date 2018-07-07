@@ -29,10 +29,10 @@ let startPoints = setStartPoints(document);
 let endPoints = [];
 
 for(startPoint of startPoints){
-    while (shouldIncludeParentNode(startPoint)){
+    /*while (shouldIncludeParentNode(startPoint)){
         startPoint = startPoint.parentNode;
         //console.log(startPoint);
-    }
+    }*/
     if(!endPoints.includes(startPoint)){
         //TODO: 결과로 나온 endpoints들 합치기
         
@@ -46,6 +46,7 @@ for(point of endPoints){
         point.style.border = "5px solid crimson";
     }
 }
+console.log(getCommonAncestor(endPoints))
 getCommonAncestor(endPoints).style.border = "5px solid cyan";
 
 function shouldIncludeParentNode(currentNode){ //현재 노드가 중요한 본문일때 parentNode까지 중요한 본문에 포함이 되는지 확인 
@@ -77,43 +78,36 @@ function includeParagraph(node){
     //return node.tagName.includes('H') || node.tagName.includes('P') || node.querySelector('p');
 }
 
-function findParagraphs(doc){  //본문이라고 생각되는 태그들을 일차적으로 가져옴
+function findParagraphNodes(doc){  //본문이라고 생각되는 태그들을 일차적으로 가져옴
     let paragraphNodes = [];
     let meantToBeRemoved = [];
-    /*if (doc.querySelector('main p')) {
-        paragraphNodes.push(doc.querySelectorAll('main p'));
-    }
-    if (doc.querySelector('[role="main"] p')) {
-        paragraphNodes.push(doc.querySelectorAll('[role="main"] p'));
-    }
-    if (doc.querySelector('.content p')) {
-        paragraphNodes.push(doc.querySelectorAll('.content p'));
-    }
-    if (doc.querySelector('article p')) {
-        paragraphNodes.push(doc.querySelectorAll('article p'));
-    }
-    if (doc.querySelector('#main p')) {
-        paragraphNodes.push(doc.querySelectorAll('#main p'));
-        //throw new Error('noop');
-    }*/
-    if (doc.querySelector('h1, h2, h3, h4, h5, p')){
-        for(node of doc.querySelectorAll('h1, h2, h3, h4, h5, p')){
-            if(function(node){
-                for (child of node.childNodes) {
-                    if (child.tagName === "A" && (!child.nextSibling || (child.nextSibling.nodeType!=3)) 
-                        || (!node.innerText || node.innerText.replace(/\s/g, '')==='')
-                        || (node.querySelector('iframe'))
-                    ) {
-                        return false;
-                    }
-                }
-                return true;
-            }(node)){
-                paragraphNodes.push(node);
+    let docs = [doc];
+    if(doc.querySelector('iframe, frame')){
+        for(frameDoc of doc.querySelectorAll('iframe, frame')){
+            if(frameDoc.contentDocument){
+                docs.push(frameDoc.contentDocument);
             }
-            else{
-                meantToBeRemoved.push(node.parentNode);
-                //node.remove();
+        }
+    }
+    for(targetDoc of docs){
+        if (targetDoc.querySelector('h1, h2, h3, h4, h5, p')){
+            for(node of targetDoc.querySelectorAll('h1, h2, h3, h4, h5, p')){
+                if(function(node){
+                    for (child of node.childNodes) {
+                        if (child.tagName === "A" && (!child.nextSibling || (child.nextSibling.nodeType!=3))
+                        ) {
+                            console.log(child);
+                            return false;
+                        }
+                    }
+                    return true;
+                }(node) && !node.querySelector('iframe') && !(!node.innerText || node.innerText.replace(/\s/g, '') === '')){
+                    paragraphNodes.push(node);
+                }
+                else{
+                    meantToBeRemoved.push(node.parentNode);
+                    //node.remove();
+                }
             }
         }
     }
@@ -125,9 +119,14 @@ function findParagraphs(doc){  //본문이라고 생각되는 태그들을 일�
 }
 
 function filterNode(node, bannedList){
-    //let bannedTagList = ['FOOTER', 'ASIDE', 'A', 'HEADER', 'NAV', 'SPAN'];
-    //let bannedIdList = ['footer'];
     for(prop in bannedList){
+        if(prop === "classList" && node.classList){
+            for(bannedClass of bannedList['classList']){
+                if(node['classList'].contains(bannedClass)){
+                    return false;
+                }
+            }
+        }
         if(bannedList[prop].includes(node[prop])){
             return false;
         }
@@ -138,8 +137,10 @@ function filterNode(node, bannedList){
 
 function setStartPoints(doc){  //탐색을 시작할 가장 아랫단계의 시작점들을 선별
     points = [];
-    for(node of findParagraphs(doc)){
+    for(node of findParagraphNodes(doc)){
         if(!points.includes(node.parentNode) && !checkParents(node)){
+            console.log("this node is admitted")
+            console.log(node);
             points.push(node.parentNode);
         }
     }
@@ -149,11 +150,12 @@ function setStartPoints(doc){  //탐색을 시작할 가장 아랫단계의 시�
 }
 
 function checkParents(node){ //footer tag나 aside 태그 node를 부모로 가지고 있으면 거른다. => return true
-    let bannedTagList = ['FORM','FOOTER', 'ASIDE', 'A', 'HEADER', 'NAV', 'SPAN', 'INPUT']
+    let bannedTagList = ['FORM','FOOTER', 'ASIDE', 'A', 'HEADER', 'NAV', 'INPUT', 'TEXTAREA']
     let bannedIdList = ['footer', 'sidebar', 'sidenav', 'topnav']
-    let bannedClassList = ['sidesection', 'sidebar', 'footer', 'sidenav', 'title', 'top']
+    let bannedClassList = ['sidesection', 'sidebar', 'footer', 'sidenav', 'title', 'top', 'hidden', 'trackback']
+    let bannedRoleList = ['alert'];
     while(node){
-        if(filterNode(node, {tagName: bannedTagList, id: bannedIdList, className: bannedClassList})){
+        if(filterNode(node, {tagName: bannedTagList, id: bannedIdList, classList: bannedClassList, role : bannedRoleList})){
             node = node.parentNode;
         }
         else{
@@ -163,13 +165,27 @@ function checkParents(node){ //footer tag나 aside 태그 node를 부모로 가�
     return false;
 }
 
-function checkChildren(node){ //이 node가 본문에 포함되도 상관이 없는가?
-    let bannedTagList = ['footer', 'aside', 'header', 'nav', 'span', 'input'];
-    let banneIdList = ['footer', 'sidebar', 'topnav']
-    let bannedClassList = ['.sidesection', '.sidebar','.footer', '.sidenav', '.title', '.top']
+
+/**
+ *
+ * @description 이 node가 filtering되어야 하는지 검사
+ * @param {Node} node
+ * @returns {boolean} should this node to be filtered?
+ */
+function checkChildren(node){ //이 node가 filtering되어야 하는지 child를 검사 =>true면 걸러야됨
+    let bannedTagList = ['form', 'footer', 'aside', 'header', 'nav', 'input', 'textarea'];
+    let bannedIdList = ['footer', 'sidebar', 'topnav']
+    let bannedClassList = ['.sidesection', '.sidebar','.footer', '.sidenav', '.title', '.top', '.hidden', '.trackback'];
+    let bannedroleList = ['alert'];
+    let queryString = arrayToDomQueryString(bannedTagList) + ', ' 
+                    + arrayToDomQueryString(bannedClassList) + ', ' 
+                    + arrayToDomQueryString(bannedIdList, 'id') + ', '
+                    + arrayToDomQueryString(bannedroleList, 'role')
 
     //return bannedTagList.includes(node.tagName) || node.querySelectorAll('footer', 'aside', 'header', 'nav')[0] || node.querySelectorAll(...bannedClassList)[0];
-    return node.querySelectorAll(...bannedClassList)[0] || node.querySelectorAll(...bannedTagList)[0] || node.querySelectorAll('[id="footer, sidebar, topnav"]')[0]
+    //return node.querySelectorAll(...bannedClassList)[0] || node.querySelectorAll(...bannedTagList)[0] || node.querySelectorAll('[id="footer, sidebar, topnav"]')[0]
+    
+    return node.querySelector(queryString);
 }
 
 function removeAds(node){
@@ -181,25 +197,61 @@ function removeAds(node){
         node.remove();
     }
 }
-
 /**
  *
- *
- * @param {Node[]} args
- * @returns {Node} 
+ * @description get common ancestor of nodes
+ * @param {Node[]} endPointList - nodes you wanna find the common ancestors of 
+ * @returns {Node} common ancestor
  */
 function getCommonAncestor(endPointList){
     console.log('getting common ancestor')
-    let result = null;
+    let result = getLongestNode(endPointList);
+    console.log("logest one: ");
     for(node of endPointList){
 
         if(!result){
             result = node;
             continue;
         }
-        while(!result.contains(node) && !checkChildren(result.parentNode)){
-            console.log(result);   
-            result = result.parentNode;
+        let tmp = result;
+        while(!result.contains(node)){
+            if(checkChildren(result.parentNode)){ //부모가 부적합하다고 판정되었을때
+                console.log("inadequate parent");
+                console.log(checkChildren(result.parentNode))
+                result = tmp;
+                break;
+            }
+            else{
+                console.log(result);
+                result = result.parentNode;
+            }
+        }
+    }
+    return result;
+}
+
+function arrayToDomQueryString(arr, attr){
+    let result = '';
+    if(attr){
+        return arr.reduce((acc, cur, index)=>{
+            return acc + `[${attr}="${cur}"], `  
+        }).slice(0,-2)
+    }
+    else{
+        return arr.reduce((acc, cur, index)=>{
+            return acc + `${cur}, `
+        }).slice(0,-2)
+    }
+}
+
+function getLongestNode(arr){
+    let count = 0;
+    let result;
+    for(node of arr){
+        console.log(node.innerText.length);
+        if(node.innerText && node.innerText.length > count){
+            count = node.innerText.length;
+            result = node;
         }
     }
     return result;
